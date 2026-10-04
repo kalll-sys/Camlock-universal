@@ -1,0 +1,114 @@
+-- // NEBOLUSVERSE - Roblox Mobile FOV Circle Camlock (Stable Version)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local CamlockEnabled = false
+local selectedTarget = nil
+
+-- Konfigurasi FOV Radius (Ukuran lingkaran tengah dalam pixel)
+local FOV_Radius = 130 
+
+-- Bikin ScreenGui buat UI & Lingkaran FOV
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NebolusFOVUI"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+
+-- Visual Lingkaran FOV di tengah layar
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Name = "FOVCircle"
+FOVCircle.Size = UDim2.new(0, FOV_Radius * 2, 0, FOV_Radius * 2)
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Visible = false
+FOVCircle.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = FOVCircle
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 1.5
+UIStroke.Color = Color3.fromRGB(0, 255, 255)
+UIStroke.Transparency = 0.5
+UIStroke.Parent = FOVCircle
+
+-- Tombol Toggle On/Off (Bisa Digeser)
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "CamlockButton"
+ToggleButton.Size = UDim2.new(0, 110, 0, 45)
+ToggleButton.Position = UDim2.new(0.8, -55, 0.3, -22)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ToggleButton.BorderColor3 = Color3.fromRGB(0, 255, 255)
+ToggleButton.BorderSizePixel = 2
+ToggleButton.Text = "CAMLOCK: OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+ToggleButton.TextSize = 13
+ToggleButton.Font = Enum.Font.Code
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+ToggleButton.Parent = ScreenGui
+
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 8)
+ButtonCorner.Parent = ToggleButton
+
+-- Fungsi cari target yang masuk ke dalam lingkaran FOV di tengah layar
+local function getTargetInFOV()
+    local target = nil
+    local shortestDist = math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local rootPart = player.Character.HumanoidRootPart
+                local screenPoint, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                
+                if onScreen then
+                    local targetPos2D = Vector2.new(screenPoint.X, screenPoint.Y)
+                    local distFromCenter = (targetPos2D - screenCenter).Magnitude
+                    
+                    if distFromCenter <= FOV_Radius and distFromCenter < shortestDist then
+                        shortestDist = distFromCenter
+                        target = rootPart
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- Toggle On/Off saat tombol disentuh
+ToggleButton.MouseButton1Click:Connect(function()
+    CamlockEnabled = not CamlockEnabled
+    if CamlockEnabled then
+        ToggleButton.Text = "CAMLOCK: ON"
+        ToggleButton.TextColor3 = Color3.fromRGB(100, 255, 100)
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 60, 40)
+        FOVCircle.Visible = true
+    else
+        ToggleButton.Text = "CAMLOCK: OFF"
+        ToggleButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        FOVCircle.Visible = false
+        selectedTarget = nil
+    end
+end)
+
+-- Main loop: Terus mengunci kamera ke target yang ada di dalam FOV
+RunService.RenderStepped:Connect(function()
+    if CamlockEnabled then
+        selectedTarget = getTargetInFOV()
+        if selectedTarget then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, selectedTarget.Position)
+        end
+    end
+end)
